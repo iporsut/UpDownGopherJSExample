@@ -2,42 +2,47 @@ package main
 
 import (
 	"fmt"
-	"sync"
 
+	"honnef.co/go/js/console"
 	"honnef.co/go/js/dom"
 )
 
+func UpdateDisplay(numChan chan int) {
+	for {
+		select {
+		case num := <-numChan:
+			console.Log("UpdateDisplay")
+			dom.GetWindow().Document().QuerySelector("#num").SetTextContent(fmt.Sprint(num))
+		}
+	}
+}
+
+type NumState struct {
+	Num int
+}
+
+func (n *NumState) Add() {
+	n.Num++
+}
+
+func (n *NumState) Sub() {
+	n.Num--
+}
+
 func main() {
-	num := 0
-	var numMutex sync.Mutex
+	var numState NumState
 	numChan := make(chan int, 1)
 
-	go func(numChan chan int) {
-		for {
-			select {
-			case num := <-numChan:
-				if el := dom.GetWindow().Document().QuerySelector("#num"); el != nil {
-					el.SetTextContent(fmt.Sprint(num))
-				}
-			}
-		}
-	}(numChan)
+	go UpdateDisplay(numChan)
 
-	if el := dom.GetWindow().Document().QuerySelector("#up"); el != nil {
-		el.AddEventListener("click", false, func(e dom.Event) {
-			numMutex.Lock()
-			num += 1
-			numMutex.Unlock()
-			numChan <- num
-		})
-	}
+	dom.GetWindow().Document().QuerySelector("#up").AddEventListener("click", false, func(e dom.Event) {
+		numState.Add()
+		console.Log(numState.Num)
+		numChan <- numState.Num
+	})
 
-	if el := dom.GetWindow().Document().QuerySelector("#down"); el != nil {
-		el.AddEventListener("click", false, func(e dom.Event) {
-			numMutex.Lock()
-			num -= 1
-			numMutex.Unlock()
-			numChan <- num
-		})
-	}
+	dom.GetWindow().Document().QuerySelector("#down").AddEventListener("click", false, func(e dom.Event) {
+		numState.Sub()
+		numChan <- numState.Num
+	})
 }
