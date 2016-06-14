@@ -1,43 +1,28 @@
 package main
 
 import (
-	"fmt"
-	"sync"
+	"io/ioutil"
+	"net/http"
 
+	"honnef.co/go/js/console"
 	"honnef.co/go/js/dom"
 )
 
 func main() {
-	num := 0
-	var numMutex sync.Mutex
-	numChan := make(chan int, 1)
-
-	go func(numChan chan int) {
-		for {
-			select {
-			case num := <-numChan:
-				if el := dom.GetWindow().Document().QuerySelector("#num"); el != nil {
-					el.SetTextContent(fmt.Sprint(num))
+	if el := dom.GetWindow().Document().QuerySelector("#load"); el != nil {
+		el.AddEventListener("click", false, func(e dom.Event) {
+			go func() {
+				resp, err := http.Get("http://localhost:8080/hellogopherjs/data.json")
+				if err != nil {
+					panic(err)
 				}
-			}
-		}
-	}(numChan)
-
-	if el := dom.GetWindow().Document().QuerySelector("#up"); el != nil {
-		el.AddEventListener("click", false, func(e dom.Event) {
-			numMutex.Lock()
-			num += 1
-			numMutex.Unlock()
-			numChan <- num
-		})
-	}
-
-	if el := dom.GetWindow().Document().QuerySelector("#down"); el != nil {
-		el.AddEventListener("click", false, func(e dom.Event) {
-			numMutex.Lock()
-			num -= 1
-			numMutex.Unlock()
-			numChan <- num
+				b, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					panic(err)
+				}
+				console.Log(string(b))
+			}()
+			console.Log("Loading")
 		})
 	}
 }
